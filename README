@@ -1,0 +1,5 @@
+# Readme for the tikzplots package
+
+# To install/use tikzplots just run:
+
+python setup.py develop --user
