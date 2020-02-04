@@ -1,0 +1,12 @@
+syntax: glob
+
+*~
+*.tex
+*.pdf
+*.aux
+*.bbl
+*.blg
+*.log
+*.nav
+*.snm
+*.toc

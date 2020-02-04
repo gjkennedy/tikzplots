@@ -39,6 +39,9 @@ def get_end_tikz():
     s += '\\end{document}'
     return s
 
+def hex_to_rgb(h):
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
 def get_tableau20():
     '''Return 20 nice colors'''
     tableau20 = [(31, 119, 180), (174, 199, 232),
@@ -52,6 +55,51 @@ def get_tableau20():
                  (188, 189, 34), (219, 219, 141),
                  (23, 190, 207), (158, 218, 229)]
     return tableau20
+
+def get_blue_red_colors(n):
+    red = hex_to_rgb('c23616')
+    white = (255, 255, 255)
+    blue = hex_to_rgb('192a56')
+
+    rgb = []
+    for i in range(n):
+        if i < n/2:
+            u = 0.75*i/(n-1)
+        else:
+            u = 0.25 + 0.75*i/(n - 1)
+
+        if u > 0.5:
+            w1 = 0.0
+            w2 = 2*(u - 0.5)
+            w3 = 1 - 2*(u - 0.5)
+        else:
+            w1 = 1 - 2*u
+            w2 = 0.0
+            w3 = 2*u
+        rgb.append((min(255, int(w1*blue[0] + w2*red[0] + w3*white[0])), 
+                    min(255, int(w1*blue[1] + w2*red[1] + w3*white[1])),
+                    min(255, int(w1*blue[2] + w2*red[2] + w3*white[2]))))
+
+    return rgb
+
+def get_colors(name):
+    if name == 'tableau20':
+        return get_tableau20()
+    if name == 'blue-green':
+        hexa = ['48466d', '3d84a8', '46cdcf', 'abedd8']
+    elif name == 'orange-green':
+        hexa = ['ffba5a', 'c0ffb3', '52de97', '2c7873']
+    elif name == 'germany':
+        hexa = ['2d4059', 'ea5455', 'f07b3f', 'ffd460']
+    else:
+        hexa = ['00b894', '00cec9', '0984e3', '6c5ce7', 
+                'b2bec3', 'fdcb6e', 'e17055', 'd63031',
+                'e84393', '2d3436']
+
+    rgb = []
+    for h in hexa:
+        rgb.append(hex_to_rgb(h))
+    return rgb
 
 def _get_intersections(x1, x2, y1, y2,
                        xmin, xmax, ymin, ymax):
