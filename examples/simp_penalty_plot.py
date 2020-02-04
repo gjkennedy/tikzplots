@@ -43,7 +43,6 @@ ylabel_offset = 0.15
 # Set the colours to use
 colors = ['Red', 'NavyBlue', 'black', 'ForestGreen', 'Gray']
 
-
 # Create the SIMP version of the plot
 s = tikz.get_header()
 s += tikz.get_begin_tikz(xdim=2.75, ydim=2.75, xunit='in', yunit='in')
