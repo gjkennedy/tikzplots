@@ -308,71 +308,127 @@ def get_bar_chart(bars, color_list=None, x_sep=0.25,
     return s
 
 def get_2d_axes(xmin, xmax, ymin, ymax,
+                axis_style='r-style',
                 xscale=1, yscale=1,
                 xticks=[], yticks=[],
                 xtick_labels=None, ytick_labels=None,
-                tick_font='normalsize', tick_size='thick',
+                tick_font='normalsize', tick_size='semithick',
                 label_font='Large', xlabel='x', ylabel='y',
                 xlabel_offset=0.1, ylabel_offset=0.15,
                 axis_size='thick', axis_color='gray',
                 tick_frac=0.05, ):
     '''Draw the axes on the plot'''
 
-    # Draw the axes themselves
-    s = '\\draw[%s, color=%s] (%f,%f) -- (%f,%f);'%(
-        axis_size, axis_color, xscale*xmin, yscale*ymin,
-        xscale*xmax, yscale*ymin)
-    s += '\\draw[%s, color=%s] (%f,%f) -- (%f,%f);'%(
-        axis_size, axis_color, xscale*xmin, yscale*ymin,
-        xscale*xmin, yscale*ymax)
-
-    # Draw the x-label
-    s += '\\draw[font=\\%s] (%f, %f) node[below] {%s};'%(
-        label_font, 0.5*xscale*(xmin + xmax),
-        yscale*(ymin - xlabel_offset*(ymax - ymin)),
-        xlabel)
-
-    # Draw the y-label
-    s += '\\draw[font=\\%s] (%f, %f) node[rotate=90] {%s};'%(
-        label_font, xscale*(xmin - ylabel_offset*(xmax - xmin)),
-        0.5*yscale*(ymin + ymax),
-        ylabel)
-
-    # Draw the ticks on the graph
+    # Find the tick size
     tick_dim = min(tick_frac*(ymax - ymin)*yscale,
                    tick_frac*(xmax - xmin)*xscale)
-    if xtick_labels is None:
-        for i in range(len(xticks)):
-            s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
-                tick_font, tick_size, axis_color)
-            s += '(%f, %f) -- (%f, %f) node[below] {%g};\n'%(
-                xscale*xticks[i], yscale*ymin + tick_dim,
-                xscale*xticks[i], yscale*ymin, xticks[i])
+
+    # Draw the axes
+    s = ''
+    if axis_style == 'r-style':
+        if len(xticks) >= 2:
+            s += '\\draw[%s, color=%s] (%f, %f) -- (%f,%f) -- (%f,%f) -- (%f, %f);'%(
+                axis_size, axis_color,
+                xscale*xticks[0], yscale*ymin - tick_dim,
+                xscale*xticks[0], yscale*ymin,
+                xscale*xticks[-1], yscale*ymin,
+                xscale*xticks[-1], yscale*ymin - tick_dim)
+        if len(yticks) >= 2:
+            s += '\\draw[%s, color=%s] (%f, %f) -- (%f,%f) -- (%f,%f) -- (%f, %f);'%(
+                axis_size, axis_color,
+                xscale*xmin - tick_dim, yscale*yticks[0],
+                xscale*xmin, yscale*yticks[0],
+                xscale*xmin, yscale*yticks[-1],
+                xscale*xmin - tick_dim, yscale*yticks[-1])
     else:
-        for i in range(len(xticks)):
-            s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
-                tick_font, tick_size, axis_color)
-            s += '(%f, %f) -- (%f, %f) node[below] {%s};\n'%(
-                xscale*xticks[i], yscale*ymin + tick_dim,
-                xscale*xticks[i], yscale*ymin, xtick_labels[i])
+        s += '\\draw[%s, color=%s] (%f,%f) -- (%f,%f);'%(
+            axis_size, axis_color, xscale*xmin, yscale*ymin,
+            xscale*xmax, yscale*ymin)
+        s += '\\draw[%s, color=%s] (%f,%f) -- (%f,%f);'%(
+            axis_size, axis_color, xscale*xmin, yscale*ymin,
+            xscale*xmin, yscale*ymax)
+
+    # Draw the x-label
+    if xlabel is not None:
+        s += '\\draw[font=\\%s] (%f, %f) node[below] {%s};'%(
+            label_font, 0.5*xscale*(xmin + xmax),
+            yscale*(ymin - xlabel_offset*(ymax - ymin)),
+            xlabel)
+
+    # Draw the y-label
+    if ylabel is not None:
+        s += '\\draw[font=\\%s] (%f, %f) node[rotate=90] {%s};'%(
+            label_font, xscale*(xmin - ylabel_offset*(xmax - xmin)),
+            0.5*yscale*(ymin + ymax),
+            ylabel)
 
     # Draw the ticks on the graph
-    if ytick_labels is None:
-        for i in range(len(yticks)):
-            s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
-                tick_font, tick_size, axis_color)
-            s += '(%f, %f) -- (%f, %f) node[left] {%g};\n'%(
-                xscale*xmin + tick_dim, yscale*yticks[i],
-                xscale*xmin, yscale*yticks[i],
-                yticks[i])
+    if axis_style == 'r-style':
+        if xtick_labels is None:
+            for i in range(len(xticks)):
+                s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
+                    tick_font, tick_size, axis_color)
+                s += '(%f, %f) -- (%f, %f) node[below] {%g};\n'%(
+                    xscale*xticks[i], yscale*ymin,
+                    xscale*xticks[i], yscale*ymin - tick_dim, xticks[i])
+        else:
+            for i in range(len(xticks)):
+                s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
+                    tick_font, tick_size, axis_color)
+                s += '(%f, %f) -- (%f, %f) node[below] {%s};\n'%(
+                    xscale*xticks[i], yscale*ymin,
+                    xscale*xticks[i], yscale*ymin - tick_dim, xtick_labels[i])
+
+        # Draw the ticks on the graph
+        if ytick_labels is None:
+            for i in range(len(yticks)):
+                s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
+                    tick_font, tick_size, axis_color)
+                s += '(%f, %f) -- (%f, %f) node[left] {%g};\n'%(
+                    xscale*xmin, yscale*yticks[i],
+                    xscale*xmin - tick_dim, yscale*yticks[i],
+                    yticks[i])
+        else:
+            for i in range(len(yticks)):
+                s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
+                    tick_font, tick_size, axis_color)
+                s += '(%f, %f) -- (%f, %f) node[left] {%s};\n'%(
+                    xscale*xmin, yscale*yticks[i],
+                    xscale*xmin - tick_dim, yscale*yticks[i],
+                    ytick_labels[i])
     else:
-        for i in range(len(yticks)):
-            s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
-                tick_font, tick_size, axis_color)
-            s += '(%f, %f) -- (%f, %f) node[left] {%s};\n'%(
-                xscale*xmin + tick_dim, yscale*yticks[i],
-                xscale*xmin, yscale*yticks[i],
-                ytick_labels[i])
+        if xtick_labels is None:
+            for i in range(len(xticks)):
+                s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
+                    tick_font, tick_size, axis_color)
+                s += '(%f, %f) -- (%f, %f) node[below] {%g};\n'%(
+                    xscale*xticks[i], yscale*ymin + tick_dim,
+                    xscale*xticks[i], yscale*ymin, xticks[i])
+        else:
+            for i in range(len(xticks)):
+                s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
+                    tick_font, tick_size, axis_color)
+                s += '(%f, %f) -- (%f, %f) node[below] {%s};\n'%(
+                    xscale*xticks[i], yscale*ymin + tick_dim,
+                    xscale*xticks[i], yscale*ymin, xtick_labels[i])
+
+        # Draw the ticks on the graph
+        if ytick_labels is None:
+            for i in range(len(yticks)):
+                s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
+                    tick_font, tick_size, axis_color)
+                s += '(%f, %f) -- (%f, %f) node[left] {%g};\n'%(
+                    xscale*xmin + tick_dim, yscale*yticks[i],
+                    xscale*xmin, yscale*yticks[i],
+                    yticks[i])
+        else:
+            for i in range(len(yticks)):
+                s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
+                    tick_font, tick_size, axis_color)
+                s += '(%f, %f) -- (%f, %f) node[left] {%s};\n'%(
+                    xscale*xmin + tick_dim, yscale*yticks[i],
+                    xscale*xmin, yscale*yticks[i],
+                    ytick_labels[i])
 
     return s
 

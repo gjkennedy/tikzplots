@@ -29,7 +29,7 @@ s = tikz.get_header()
 s += tikz.get_begin_tikz(xdim=2.75, ydim=2.25, xunit='in', yunit='in')
 
 # Specify any tick locations
-yticks = [0, 0.5, 1.0]
+yticks = [-0.25, 0, 0.5, 1.0]
 
 # You can optionally specify tick labels
 xticks = knots
