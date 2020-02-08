@@ -22,10 +22,6 @@ q = 5.0
 # Set the value of the base point
 x0 = 0.5
 
-# Set the full penalty values
-SIMP = x**p
-RAMP = x/(1.0 + q*(1.0 - x))
-
 # Set the linearizations
 xSIMP = np.linspace(1.0/p*x0, 1.0, 100)
 ySIMP = x0**p + (p*x0**(p-1.0))*(xSIMP - x0)

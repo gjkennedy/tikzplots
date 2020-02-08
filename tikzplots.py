@@ -26,15 +26,25 @@ def get_begin_tikz(xdim=1.0, ydim=1.0, xunit='cm', yunit='cm',
     '''Get the portion of the string that starts the figure'''
     s = '\\begin{document}\n'
     s += '\\begin{figure}[h]\n'
-    s += '\\begin{tikzpicture}[x=%f%s, y=%f%s]\n'%(
+    s += get_begin_tikz_picture(xdim=xdim, ydim=ydim, xunit=xunit, yunit=yunit,
+                                use_sf=use_sf)
+    return s
+
+def get_begin_tikz_picture(xdim=1.0, ydim=1.0, xunit='cm', yunit='cm',
+                           use_sf=True):
+    s = '\\begin{tikzpicture}[x=%f%s, y=%f%s]\n'%(
         xdim, xunit, ydim, yunit)
     if use_sf:
         s += '\\sffamily\n'
     return s
 
+def get_end_tikz_picture():
+    s = '\\end{tikzpicture}'
+    return s
+
 def get_end_tikz():
     '''Get the final string at the end of the document'''
-    s = '\\end{tikzpicture}'
+    s = get_end_tikz_picture()
     s += '\\end{figure}'
     s += '\\end{document}'
     return s
@@ -143,7 +153,7 @@ def _get_intersections(x1, x2, y1, y2,
 
     return umin, umax
 
-def get_2d_plot(xvals, yvals, xscale=1, yscale=1,
+def get_2d_plot(xvals, yvals, xscale=1.0, xbase=0.0, yscale=1.0, ybase=0.0,
                 line_dim='thick', color='black', fill_color='white',
                 xmin=None, xmax=None, ymin=None, ymax=None,
                 symbol=None, symbol_dim='thin', symbol_size=0.15):
@@ -179,13 +189,15 @@ def get_2d_plot(xvals, yvals, xscale=1, yscale=1,
                     u = inter[0]
                     if not draw_on:
                         s += r'\draw[%s, color=%s] '%(line_dim, color)
-                        s += r'(%f, %f) '%(xscale*((1.0 - u)*xvals[i] + u*xvals[i+1]),
-                                           yscale*((1.0 - u)*yvals[i] + u*yvals[i+1]))
+                        s += r'(%f, %f) '%(
+                            xscale*((1.0 - u)*xvals[i] + u*xvals[i+1] - xbase),
+                            yscale*((1.0 - u)*yvals[i] + u*yvals[i+1] - ybase))
                         draw_on = True
 
                     u = inter[1]
-                    s += r'-- (%f, %f) '%(xscale*((1.0 - u)*xvals[i] + u*xvals[i+1]),
-                                          yscale*((1.0 - u)*yvals[i] + u*yvals[i+1]))
+                    s += r'-- (%f, %f) '%(
+                        xscale*((1.0 - u)*xvals[i] + u*xvals[i+1] - xbase),
+                        yscale*((1.0 - u)*yvals[i] + u*yvals[i+1] - ybase))
 
                     if u < 1.0:
                         s += ';\n'
@@ -193,11 +205,13 @@ def get_2d_plot(xvals, yvals, xscale=1, yscale=1,
                 else:
                     u = inter[0]
                     s += r'\draw[%s, color=%s] '%(line_dim, color)
-                    s += r'(%f, %f) '%(xscale*((1.0 - u)*xvals[i] + u*xvals[i+1]),
-                                       yscale*((1.0 - u)*yvals[i] + u*yvals[i+1]))
+                    s += r'(%f, %f) '%(
+                        xscale*((1.0 - u)*xvals[i] + u*xvals[i+1] - xbase),
+                        yscale*((1.0 - u)*yvals[i] + u*yvals[i+1] - ybase))
                     u = inter[1]
-                    s += r'-- (%f, %f);'%(xscale*((1.0 - u)*xvals[i] + u*xvals[i+1]),
-                                          yscale*((1.0 - u)*yvals[i] + u*yvals[i+1]))
+                    s += r'-- (%f, %f);'%(
+                        xscale*((1.0 - u)*xvals[i] + u*xvals[i+1] - xbase),
+                        yscale*((1.0 - u)*yvals[i] + u*yvals[i+1] - ybase))
                     s += '\n'
 
         if symbol is None:
@@ -210,59 +224,66 @@ def get_2d_plot(xvals, yvals, xscale=1, yscale=1,
                 (yvals[i] >= ymin and yvals[i] <= ymax)):
                 s += r'\draw[%s, color=%s, fill=%s] (%f, %f) circle (%g);'%(
                     symbol_dim, color, fill_color,
-                    xscale*xvals[i], yscale*yvals[i], 0.5*symbol_size)
+                    xscale*(xvals[i] - xbase),
+                    yscale*(yvals[i] - ybase), 0.5*symbol_size)
     elif symbol == 'square':
         for i in range(n):
             if ((xvals[i] >= xmin and xvals[i] <= xmax) and
                 (yvals[i] >= ymin and yvals[i] <= ymax)):
                 s += r'\draw[%s, color=%s, fill=%s] (%f, %f) rectangle (%f, %f);'%(
                     symbol_dim, color, fill_color,
-                    xscale*xvals[i] - 0.5*symbol_size,
-                    yscale*yvals[i] - 0.5*symbol_size,
-                    xscale*xvals[i] + 0.5*symbol_size,
-                    yscale*yvals[i] + 0.5*symbol_size)
+                    xscale*(xvals[i] - xbase) - 0.5*symbol_size,
+                    yscale*(yvals[i] - ybase) - 0.5*symbol_size,
+                    xscale*(xvals[i] - xbase) + 0.5*symbol_size,
+                    yscale*(yvals[i] - ybase) + 0.5*symbol_size)
     elif symbol == 'triangle':
         for i in range(n):
             if ((xvals[i] >= xmin and xvals[i] <= xmax) and
                 (yvals[i] >= ymin and yvals[i] <= ymax)):
                 s += r'\draw[%s, color=%s, fill=%s] (%f,%f) '%(
                     symbol_dim, color, fill_color,
-                    xscale*xvals[i] - 0.45*symbol_size,
-                    yscale*yvals[i] - 0.5*symbol_size)
+                    xscale*(xvals[i] - xbase) - 0.45*symbol_size,
+                    yscale*(yvals[i] - ybase) - 0.5*symbol_size)
                 s += '-- (%f,%f) -- (%f,%f) -- cycle;\n'%(
-                    xscale*xvals[i] + 0.45*symbol_size,
-                    yscale*yvals[i] - 0.5*symbol_size,
-                    xscale*xvals[i], yscale*yvals[i] + 0.5*symbol_size)
+                    xscale*(xvals[i] - xbase) + 0.45*symbol_size,
+                    yscale*(yvals[i] - ybase) - 0.5*symbol_size,
+                    xscale*(xvals[i] - xbase),
+                    yscale*(yvals[i] - ybase) + 0.5*symbol_size)
     elif symbol == 'delta':
         for i in range(n):
             if ((xvals[i] >= xmin and xvals[i] <= xmax) and
                 (yvals[i] >= ymin and yvals[i] <= ymax)):
                 s += r'\draw[%s, color=%s, fill=%s] (%f,%f) '%(
                     symbol_dim, color, fill_color,
-                    xscale*xvals[i] - 0.45*symbol_size,
-                    yscale*yvals[i] + 0.5*symbol_size)
+                    xscale*(xvals[i] - xbase) - 0.45*symbol_size,
+                    yscale*(yvals[i] - ybase) + 0.5*symbol_size)
                 s += '-- (%f,%f) -- (%f,%f) -- cycle;\n'%(
-                    xscale*xvals[i] + 0.45*symbol_size,
-                    yscale*yvals[i] + 0.5*symbol_size,
-                    xscale*xvals[i],
-                    yscale*yvals[i] - 0.5*symbol_size)
+                    xscale*(xvals[i] - xbase) + 0.45*symbol_size,
+                    yscale*(yvals[i] - ybase) + 0.5*symbol_size,
+                    xscale*(xvals[i] - xbase),
+                    yscale*(yvals[i] - ybase) - 0.5*symbol_size)
     elif symbol == 'diamond':
         for i in range(n):
             if ((xvals[i] >= xmin and xvals[i] <= xmax) and
                 (yvals[i] >= ymin and yvals[i] <= ymax)):
                 s += r'\draw[%s, color=%s, fill=%s] (%f,%f) '%(
                     symbol_dim, color, fill_color,
-                    xscale*xvals[i] - 0.5*symbol_size, yscale*yvals[i])
+                    xscale*(xvals[i] - xbase) - 0.5*symbol_size,
+                    yscale*(yvals[i] - ybase))
                 s += '-- (%f,%f) -- (%f,%f) -- (%f,%f) -- cycle;\n'%(
-                    xscale*xvals[i], yscale*yvals[i] - 0.5*symbol_size,
-                    xscale*xvals[i] + 0.5*symbol_size, yscale*yvals[i],
-                    xscale*xvals[i], yscale*yvals[i] + 0.5*symbol_size)
+                    xscale*(xvals[i] - xbase),
+                    yscale*(yvals[i] - ybase) - 0.5*symbol_size,
+                    xscale*(xvals[i] - xbase) + 0.5*symbol_size,
+                    yscale*(yvals[i] - ybase),
+                    xscale*(xvals[i] - xbase),
+                    yscale*(yvals[i] - ybase) + 0.5*symbol_size)
 
     return s
 
 def get_bar_chart(bars, color_list=None, x_sep=0.25,
                   xmin=None, xmax=None, ymin=None, ymax=None,
-                  line_dim='thick', xscale=1, yscale=1,
+                  line_dim='thick', xscale=1.0, xbase=0.0,
+                  yscale=1, ybase=0.0,
                   bar_width=None, bar_offset=None):
     '''Get the string for a bar chart'''
 
@@ -303,13 +324,14 @@ def get_bar_chart(bars, color_list=None, x_sep=0.25,
                 s += r'\draw[%s, color=%s, fill=%s, fill opacity=0.3]'%(
                     line_dim, color_list[j], color_list[j])
                 s += ' (%f, %f) rectangle (%f, %f);'%(
-                    xscale*x1, yscale*y1, xscale*x2, yscale*y2)
+                    xscale*(x1 - xbase), yscale*(y1 - ybase),
+                    xscale*(x2 - xbase), yscale*(y2 - ybase))
 
     return s
 
 def get_2d_axes(xmin, xmax, ymin, ymax,
                 axis_style='r-style',
-                xscale=1, yscale=1,
+                xscale=1.0, xbase=0.0, yscale=1.0, ybase=0.0,
                 xticks=[], yticks=[],
                 xtick_labels=None, ytick_labels=None,
                 tick_font='normalsize', tick_size='semithick',
@@ -329,37 +351,40 @@ def get_2d_axes(xmin, xmax, ymin, ymax,
         if len(xticks) >= 2:
             s += '\\draw[%s, color=%s] (%f, %f) -- (%f,%f) -- (%f,%f) -- (%f, %f);'%(
                 axis_size, axis_color,
-                xscale*xticks[0], yscale*ymin - tick_dim,
-                xscale*xticks[0], yscale*ymin,
-                xscale*xticks[-1], yscale*ymin,
-                xscale*xticks[-1], yscale*ymin - tick_dim)
+                xscale*(xticks[0] - xbase),
+                yscale*(ymin - ybase) - tick_dim,
+                xscale*(xticks[0] - xbase), yscale*(ymin - ybase),
+                xscale*(xticks[-1] - xbase), yscale*(ymin - ybase),
+                xscale*(xticks[-1] - xbase), yscale*(ymin - ybase) - tick_dim)
         if len(yticks) >= 2:
             s += '\\draw[%s, color=%s] (%f, %f) -- (%f,%f) -- (%f,%f) -- (%f, %f);'%(
                 axis_size, axis_color,
-                xscale*xmin - tick_dim, yscale*yticks[0],
-                xscale*xmin, yscale*yticks[0],
-                xscale*xmin, yscale*yticks[-1],
-                xscale*xmin - tick_dim, yscale*yticks[-1])
+                xscale*(xmin - xbase) - tick_dim, yscale*(yticks[0] - ybase),
+                xscale*(xmin - xbase), yscale*(yticks[0] - ybase),
+                xscale*(xmin - xbase), yscale*(yticks[-1] - ybase),
+                xscale*(xmin - xbase) - tick_dim, yscale*(yticks[-1] - ybase))
     else:
         s += '\\draw[%s, color=%s] (%f,%f) -- (%f,%f);'%(
-            axis_size, axis_color, xscale*xmin, yscale*ymin,
-            xscale*xmax, yscale*ymin)
+            axis_size, axis_color,
+            xscale*(xmin - xbase), yscale*(ymin - ybase),
+            xscale*(xmax - xbase), yscale*(ymin - ybase))
         s += '\\draw[%s, color=%s] (%f,%f) -- (%f,%f);'%(
-            axis_size, axis_color, xscale*xmin, yscale*ymin,
-            xscale*xmin, yscale*ymax)
+            axis_size, axis_color,
+            xscale*(xmin - xbase), yscale*(ymin - ybase),
+            xscale*(xmin - xbase), yscale*(ymax - ybase))
 
     # Draw the x-label
     if xlabel is not None:
         s += '\\draw[font=\\%s] (%f, %f) node[below] {%s};'%(
-            label_font, 0.5*xscale*(xmin + xmax),
-            yscale*(ymin - xlabel_offset*(ymax - ymin)),
+            label_font, 0.5*xscale*(xmin + xmax - xbase),
+            yscale*(ymin - xlabel_offset*(ymax - ymin) - ybase),
             xlabel)
 
     # Draw the y-label
     if ylabel is not None:
         s += '\\draw[font=\\%s] (%f, %f) node[rotate=90] {%s};'%(
-            label_font, xscale*(xmin - ylabel_offset*(xmax - xmin)),
-            0.5*yscale*(ymin + ymax),
+            label_font, xscale*(xmin - ylabel_offset*(xmax - xmin) - xbase),
+            0.5*yscale*(ymin + ymax - ybase),
             ylabel)
 
     # Draw the ticks on the graph
@@ -369,15 +394,17 @@ def get_2d_axes(xmin, xmax, ymin, ymax,
                 s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
                     tick_font, tick_size, axis_color)
                 s += '(%f, %f) -- (%f, %f) node[below] {%g};\n'%(
-                    xscale*xticks[i], yscale*ymin,
-                    xscale*xticks[i], yscale*ymin - tick_dim, xticks[i])
+                    xscale*(xticks[i] - xbase), yscale*(ymin - ybase),
+                    xscale*(xticks[i] - xbase), yscale*(ymin - ybase) - tick_dim,
+                    xticks[i])
         else:
             for i in range(len(xticks)):
                 s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
                     tick_font, tick_size, axis_color)
                 s += '(%f, %f) -- (%f, %f) node[below] {%s};\n'%(
-                    xscale*xticks[i], yscale*ymin,
-                    xscale*xticks[i], yscale*ymin - tick_dim, xtick_labels[i])
+                    xscale*(xticks[i] - xbase), yscale*(ymin - ybase),
+                    xscale*(xticks[i] - xbase), yscale*(ymin - ybase) - tick_dim,
+                    xtick_labels[i])
 
         # Draw the ticks on the graph
         if ytick_labels is None:
@@ -385,16 +412,16 @@ def get_2d_axes(xmin, xmax, ymin, ymax,
                 s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
                     tick_font, tick_size, axis_color)
                 s += '(%f, %f) -- (%f, %f) node[left] {%g};\n'%(
-                    xscale*xmin, yscale*yticks[i],
-                    xscale*xmin - tick_dim, yscale*yticks[i],
+                    xscale*(xmin - xbase), yscale*(yticks[i] - ybase),
+                    xscale*(xmin - xbase) - tick_dim, yscale*(yticks[i] - ybase),
                     yticks[i])
         else:
             for i in range(len(yticks)):
                 s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
                     tick_font, tick_size, axis_color)
                 s += '(%f, %f) -- (%f, %f) node[left] {%s};\n'%(
-                    xscale*xmin, yscale*yticks[i],
-                    xscale*xmin - tick_dim, yscale*yticks[i],
+                    xscale*(xmin - xbase), yscale*(yticks[i] - ybase),
+                    xscale*(xmin - xbase) - tick_dim, yscale*(yticks[i] - ybase),
                     ytick_labels[i])
     else:
         if xtick_labels is None:
@@ -402,15 +429,17 @@ def get_2d_axes(xmin, xmax, ymin, ymax,
                 s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
                     tick_font, tick_size, axis_color)
                 s += '(%f, %f) -- (%f, %f) node[below] {%g};\n'%(
-                    xscale*xticks[i], yscale*ymin + tick_dim,
-                    xscale*xticks[i], yscale*ymin, xticks[i])
+                    xscale*(xticks[i] - xbase), yscale*(ymin - ybase) + tick_dim,
+                    xscale*(xticks[i] - xbase), yscale*(ymin - ybase),
+                    xticks[i])
         else:
             for i in range(len(xticks)):
                 s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
                     tick_font, tick_size, axis_color)
                 s += '(%f, %f) -- (%f, %f) node[below] {%s};\n'%(
-                    xscale*xticks[i], yscale*ymin + tick_dim,
-                    xscale*xticks[i], yscale*ymin, xtick_labels[i])
+                    xscale*(xticks[i] - xbase), yscale*(ymin - ybase) + tick_dim,
+                    xscale*(xticks[i] - xbase), yscale*(ymin - ybase),
+                    xtick_labels[i])
 
         # Draw the ticks on the graph
         if ytick_labels is None:
@@ -418,21 +447,22 @@ def get_2d_axes(xmin, xmax, ymin, ymax,
                 s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
                     tick_font, tick_size, axis_color)
                 s += '(%f, %f) -- (%f, %f) node[left] {%g};\n'%(
-                    xscale*xmin + tick_dim, yscale*yticks[i],
-                    xscale*xmin, yscale*yticks[i],
+                    xscale*(xmin - xbase) + tick_dim, yscale*(yticks[i] - ybase),
+                    xscale*(xmin - xbase), yscale*(yticks[i] - ybase),
                     yticks[i])
         else:
             for i in range(len(yticks)):
                 s += '\\draw[font=\\%s, %s, color=%s, text=black] '%(
                     tick_font, tick_size, axis_color)
                 s += '(%f, %f) -- (%f, %f) node[left] {%s};\n'%(
-                    xscale*xmin + tick_dim, yscale*yticks[i],
-                    xscale*xmin, yscale*yticks[i],
+                    xscale*(xmin - xbase) + tick_dim, yscale*(yticks[i] - ybase),
+                    xscale*(xmin - xbase), yscale*(yticks[i] - ybase),
                     ytick_labels[i])
 
     return s
 
-def get_legend_entry(x, y, length, xscale=1, yscale=1,
+def get_legend_entry(x, y, length, xscale=1.0, xbase=0.0,
+                     yscale=1.0, ybase=0.0,
                      font_size='large',
                      line_dim='thick', color='black',
                      symbol=None, symbol_dim='thin',
@@ -443,7 +473,8 @@ def get_legend_entry(x, y, length, xscale=1, yscale=1,
     xvals = [x - 0.5*length, x + 0.5*length]
     yvals = [y, y]
 
-    s = get_2d_plot(xvals, yvals, xscale=xscale, yscale=yscale,
+    s = get_2d_plot(xvals, yvals, xscale=xscale, xbase=xbase,
+                    yscale=yscale, ybase=ybase,
                     line_dim=line_dim, color=color,
                     symbol=symbol, symbol_dim=symbol_dim,
                     symbol_size=symbol_size)
