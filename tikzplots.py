@@ -1,14 +1,14 @@
-'''
+"""
 The following functions implement 2D plotting functions for tikz.
 
 These allow you to generate a string that contains the tikz/LaTeX
 commands that will create 2D line plots over a given domain. These can
 be customized by adding commands to the string that will generate the
 axes, title, labels etc. that may be required.
-'''
+"""
 
 def get_header(font_package='helvet'):
-    '''Return the header file'''
+    """Return the header file"""
     s = '\\documentclass{article}\n'
     s += '\\usepackage[usenames,dvipsnames]{xcolor}\n'
     s += '\\usepackage{tikz}\n'
@@ -23,7 +23,7 @@ def get_header(font_package='helvet'):
 
 def get_begin_tikz(xdim=1.0, ydim=1.0, xunit='cm', yunit='cm',
                    use_sf=True):
-    '''Get the portion of the string that starts the figure'''
+    """Get the portion of the string that starts the figure"""
     s = '\\begin{document}\n'
     s += '\\begin{figure}[h]\n'
     s += get_begin_tikz_picture(xdim=xdim, ydim=ydim, xunit=xunit, yunit=yunit,
@@ -43,7 +43,7 @@ def get_end_tikz_picture():
     return s
 
 def get_end_tikz():
-    '''Get the final string at the end of the document'''
+    """Get the final string at the end of the document"""
     s = get_end_tikz_picture()
     s += '\\end{figure}'
     s += '\\end{document}'
@@ -53,7 +53,7 @@ def hex_to_rgb(h):
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
 def get_tableau20():
-    '''Return 20 nice colors'''
+    """Return 20 nice colors"""
     tableau20 = [(31, 119, 180), (174, 199, 232),
                  (255, 127, 14), (255, 187, 120),
                  (44, 160, 44), (152, 223, 138),
@@ -113,13 +113,13 @@ def get_colors(name):
 
 def _get_intersections(x1, x2, y1, y2,
                        xmin, xmax, ymin, ymax):
-    '''
+    """
     Get the intersection points along the line segment:
 
     (x1, y1) + u*(x2 - x1, y2 - y1) = (xmin/xmax, ymin/ymax)
 
     and sort them for convenience.
-    '''
+    """
 
     # Keep track of the original points
     dx = x2 - x1
@@ -153,15 +153,224 @@ def _get_intersections(x1, x2, y1, y2,
 
     return umin, umax
 
+def _get_tri_edges(tri):
+    """
+    Get the edges for the triangular mesh
+    """
+    return [[tri[1], tri[2]], [tri[2], tri[0]], [tri[0], tri[1]]]
+
+def _get_planar_tri_edges(npts, tris):
+    """
+    Uniquely order and create the connectivity for a planar triangular mesh
+    """
+
+    # Find the nodes associated with the triangle
+    node_to_tris = []
+    for i in range(npts):
+        node_to_tris.append([])
+
+    for index, tri in enumerate(tris):
+        node_to_tris[tri[0]].append(index)
+        node_to_tris[tri[1]].append(index)
+        node_to_tris[tri[2]].append(index)
+
+    # Assign edge numbers for each edge
+    edges = []
+    edge_to_tris = []
+    num_edges = 0
+
+    tri_to_edges = []
+    for i in range(len(tris)):
+        tri_to_edges.append([-1, -1, -1])
+
+    for tri_index, tri in enumerate(tris):
+        for e1_index, e1 in enumerate(_get_tri_edges(tri)):
+            if tri_to_edges[tri_index][e1_index] < 0:
+                match = False
+                for adj_index in node_to_tris[e1[0]]:
+                    if adj_index != tri_index:
+                        for e2_index, e2 in enumerate(_get_tri_edges(tris[adj_index])):
+                            if ((e1[0] == e2[0] and e1[1] == e2[1]) or
+                                (e1[1] == e2[0] and e1[0] == e2[1])):
+                                match = True
+                                tri_to_edges[tri_index][e1_index] = num_edges
+                                tri_to_edges[adj_index][e2_index] = num_edges
+                                edges.append((e1[0], e1[1]))
+                                edge_to_tris.append((tri_index, adj_index))
+                                num_edges += 1
+                                break
+                    if match:
+                        break
+
+                if not match:
+                    edges.append((e1[0], e1[1]))
+                    edge_to_tris.append((tri_index, -1))
+                    tri_to_edges[tri_index][e1_index] = num_edges
+                    num_edges += 1
+
+    return edges, tri_to_edges, edge_to_tris
+
+def _get_2d_tri_contour_lines(x, y, vals, tris, edges, tri_to_edges, edge_to_tris, lev):
+    """
+    Get a list of the (x,y) coordinates of lines that make up a contour level
+    on a contour plot
+    """
+
+    # Find all the edge intersections
+    has_intersect = []
+    intersect = []
+    for tri in tris:
+        inter = []
+        count = 0
+        for e_index, e in enumerate(_get_tri_edges(tri)):
+            if ((vals[e[1]] < lev and vals[e[0]] > lev) or
+                (vals[e[0]] < lev and vals[e[1]] > lev)):
+                u = (lev - vals[e[0]])/(vals[e[1]] - vals[e[0]])
+                xi = (1.0 - u)*x[e[0]] + u*x[e[1]]
+                yi = (1.0 - u)*y[e[0]] + u*y[e[1]]
+                inter.append((xi, yi))
+                count += 1
+            else:
+                inter.append(None)
+        intersect.append(inter)
+        if count == 2:
+            has_intersect.append(True)
+        else:
+            has_intersect.append(False)
+
+    # Now, try and find all of the lines
+    lines = []
+    for tri_index, tri in enumerate(tris):
+        if has_intersect[tri_index]:
+            # Find the intersections
+            X, Y = [], []
+
+            # Find the intersecting edges
+            tri_edges = []
+            for i, e_index in enumerate(tri_to_edges[tri_index]):
+                if intersect[tri_index][i] is not None:
+                    X.append(intersect[tri_index][i][0])
+                    Y.append(intersect[tri_index][i][1])
+                    tri_edges.append(e_index)
+
+            # We've finished plotting this triangle, move on to the next
+            has_intersect[tri_index] = False
+
+            prev_edge = tri_edges[1]
+            next_tri_index = edge_to_tris[prev_edge][0]
+            if next_tri_index == tri_index:
+                next_tri_index = edge_to_tris[prev_edge][1]
+
+            # Find the triangles associated with the intersection3
+            while next_tri_index >= 0:
+                for i, e_index in enumerate(tri_to_edges[next_tri_index]):
+                    if (e_index != prev_edge and intersect[next_tri_index][i] is not None):
+                        X.append(intersect[next_tri_index][i][0])
+                        Y.append(intersect[next_tri_index][i][1])
+                        prev_edge = e_index
+                        has_intersect[next_tri_index] = False
+
+                        next_tri_index = -1
+                        if has_intersect[edge_to_tris[prev_edge][0]]:
+                            next_tri_index = edge_to_tris[prev_edge][0]
+                        elif has_intersect[edge_to_tris[prev_edge][1]]:
+                            next_tri_index = edge_to_tris[prev_edge][1]
+                        break
+
+            prev_edge = tri_edges[0]
+            next_tri_index = edge_to_tris[prev_edge][0]
+            if next_tri_index == tri_index:
+                next_tri_index = edge_to_tris[prev_edge][1]
+
+            while next_tri_index >= 0:
+                for i, e_index in enumerate(tri_to_edges[next_tri_index]):
+                    if (e_index != prev_edge and intersect[next_tri_index][i] is not None):
+                        X.insert(0, intersect[next_tri_index][i][0])
+                        Y.insert(0, intersect[next_tri_index][i][1])
+                        prev_edge = e_index
+                        has_intersect[next_tri_index] = False
+
+                        next_tri_index = -1
+                        if has_intersect[edge_to_tris[prev_edge][0]]:
+                            next_tri_index = edge_to_tris[prev_edge][0]
+                        elif has_intersect[edge_to_tris[prev_edge][1]]:
+                            next_tri_index = edge_to_tris[prev_edge][1]
+                        break
+
+            lines.append((X, Y))
+
+    return lines
+
+def get_2d_quad_contour_plot(x, y, vals, quads, levs, lev_colors=None, line_dim='thick',
+                            xscale=1.0, xbase=0.0, yscale=1.0, ybase=0.0,
+                            xmin=None, xmax=None, ymin=None, ymax=None):
+    """
+    Create a 2d contour plot for a set of quads
+    """
+    s = ''
+
+    # Make sure that the levels and colors match
+    if (lev_colors is None or
+        (isinstance(lev_colors, list) and len(lev_colors) != len(levs))):
+        lev_colors = ['black']*len(levs)
+
+    tris = []
+    for quad in quads:
+        tris.append([quad[0], quad[1], quad[2]])
+        tris.append([quad[0], quad[2], quad[3]])
+
+    # Get the edges and tri_to_edges/edge_to_tris data structures
+    npts = len(x)
+    edges, tri_to_edges, edge_to_tris = _get_planar_tri_edges(npts, tris)
+
+    for index, lev in enumerate(levs):
+        line_list = _get_2d_tri_contour_lines(x, y, vals, tris, edges, tri_to_edges, edge_to_tris, lev)
+
+        for line in line_list:
+            s += get_2d_plot(line[0], line[1], xscale=xscale, xbase=xbase,
+                             yscale=yscale, ybase=ybase, line_dim=line_dim,
+                             color=lev_colors[index],
+                             xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+
+    return s
+
+def get_2d_tri_contour_plot(x, y, vals, tris, levs, lev_colors=None, line_dim='thick',
+                            xscale=1.0, xbase=0.0, yscale=1.0, ybase=0.0,
+                            xmin=None, xmax=None, ymin=None, ymax=None):
+    """
+    Create a 2d contour plot for a set of triangles
+    """
+    s = ''
+
+    # Make sure that the levels and colors match
+    if (lev_colors is None or
+        (isinstance(lev_colors, list) and len(lev_colors) != len(levs))):
+        lev_colors = ['black']*len(levs)
+
+    # Get the edges and tri_to_edges/edge_to_tris data structures
+    npts = len(x)
+    edges, tri_to_edges, edge_to_tris = _get_planar_tri_edges(npts, tris)
+
+    for index, lev in enumerate(levs):
+        line_list = _get_2d_tri_contour_lines(x, y, vals, tris, edges, tri_to_edges, edge_to_tris, lev)
+
+        for line in line_list:
+            s += get_2d_plot(line[0], line[1], xscale=xscale, xbase=xbase,
+                             yscale=yscale, ybase=ybase, line_dim=line_dim,
+                             color=lev_colors[index],
+                             xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+
+    return s
+
 def get_2d_plot(xvals, yvals, xscale=1.0, xbase=0.0, yscale=1.0, ybase=0.0,
                 line_dim='thick', color='black', fill_color='white',
                 xmin=None, xmax=None, ymin=None, ymax=None,
                 symbol=None, symbol_dim='thin', symbol_size=0.15):
-    '''
+    """
     Create a string representing the 2D plot of a series of
     linesegments. If ymin/ymax, xmin/xmax are specified, clip the plot
     to the box
-    '''
+    """
 
     # Map the points to the drawing
     if ymin is None:
@@ -285,7 +494,7 @@ def get_bar_chart(bars, color_list=None, x_sep=0.25,
                   line_dim='thick', xscale=1.0, xbase=0.0,
                   yscale=1, ybase=0.0,
                   bar_width=None, bar_offset=None):
-    '''Get the string for a bar chart'''
+    """Get the string for a bar chart"""
 
     if color_list is None:
         color_list = len(bars[0])*['black']
@@ -339,7 +548,7 @@ def get_2d_axes(xmin, xmax, ymin, ymax,
                 xlabel_offset=0.1, ylabel_offset=0.15,
                 axis_size='thick', axis_color='gray',
                 tick_frac=0.05, ):
-    '''Draw the axes on the plot'''
+    """Draw the axes on the plot"""
 
     # Find the tick size
     tick_dim = min(tick_frac*(ymax - ymin)*yscale,
@@ -467,7 +676,7 @@ def get_legend_entry(x, y, length, xscale=1.0, xbase=0.0,
                      line_dim='thick', color='black',
                      symbol=None, symbol_dim='thin',
                      symbol_size=0.15, label=''):
-    '''Add a single entry to the legend'''
+    """Add a single entry to the legend"""
 
     # Plot a line segment
     xvals = [x - 0.5*length, x + 0.5*length]
